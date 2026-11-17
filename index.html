@@ -2,7 +2,15 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- 아이패드·아이폰에서 홈 화면에 추가하면 앱처럼 전체 화면으로 열린다 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="사진 백과">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f7f4ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#17181a" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>사진 백과사전</title>
 <style>
   :root {
@@ -38,7 +46,13 @@
     line-height: 1.7;
     -webkit-text-size-adjust: 100%;
   }
-  .wrap { max-width: 920px; margin: 0 auto; padding: 0 16px; }
+  .wrap {
+    max-width: 920px; margin: 0 auto;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
 
   header { padding: 48px 0 20px; text-align: center; transition: padding .25s; }
   body.has-result header { padding-top: 24px; }
