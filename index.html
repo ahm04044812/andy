@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>그림 백과사전</title>
+<title>사진 백과사전</title>
 <style>
   :root {
     --bg: #f7f4ec;
@@ -157,6 +157,36 @@
     border: 0; border-radius: 50%; background: rgba(255, 255, 255, .15); color: #fff; font-size: 22px;
   }
 
+  .hero { position: relative; }
+  .hero .badge {
+    position: absolute; left: 12px; bottom: 10px;
+    background: rgba(0, 0, 0, .6); color: #fff; font-size: 12px;
+    border-radius: 6px; padding: 2px 8px;
+  }
+  .hero-wait {
+    aspect-ratio: 16 / 9; max-height: 440px; width: 100%;
+    display: grid; place-content: center; justify-items: center; gap: 10px;
+    background: #0000000d; color: var(--muted); font-size: 14px; text-align: center; padding: 16px;
+  }
+  .hero-wait .spinner { margin: 0; }
+  .linkish { border: 0; background: none; color: var(--accent); font-weight: 600; padding: 0; text-decoration: underline; }
+
+  .settings-btn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; padding: 4px 14px; font-size: 13px; margin-top: 14px;
+  }
+  #settings { background: var(--surface); color: var(--ink); border-radius: 14px; padding: 22px; width: min(440px, 92vw); }
+  #settings h2 { margin: 0 0 6px; font-size: 19px; font-family: var(--serif); }
+  #settings p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+  #settings label { display: block; font-size: 14px; font-weight: 600; margin: 12px 0 4px; }
+  #settings input {
+    width: 100%; font: inherit; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  }
+  #settings .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+  #settings .row button { border-radius: 8px; padding: 8px 16px; border: 1px solid var(--line); background: transparent; color: var(--ink); }
+  #settings .row .go { border: 0; }
+
   footer { text-align: center; color: var(--muted); font-size: 13px; padding: 0 0 40px; }
   footer a { color: inherit; }
 </style>
@@ -164,20 +194,39 @@
 <body>
 <div class="wrap">
   <header>
-    <h1><a href="#">그림 백과사전</a></h1>
+    <h1><a href="#">사진 백과사전</a></h1>
     <p class="tagline">궁금한 단어나 문장을 입력하면 사진과 글로 알려드려요.</p>
     <form id="form" role="search">
       <input id="q" type="search" placeholder="예: 블랙홀, 무지개는 왜 생길까" autocomplete="off" aria-label="검색어" required>
       <button class="go" id="go">찾아보기</button>
     </form>
     <div class="chips" id="chips"></div>
+    <button class="settings-btn" id="openSettings" type="button">⚙ 사진 생성 설정 (Gemini)</button>
   </header>
   <main id="out" aria-live="polite"></main>
   <footer>
     내용과 사진은 <a href="https://ko.wikipedia.org" target="_blank" rel="noopener">위키백과</a>와
     <a href="https://commons.wikimedia.org" target="_blank" rel="noopener">위키미디어 공용</a>에서 가져옵니다 (CC BY-SA).
+    맨 위 사진은 Google Gemini가 만든 AI 생성 사진이에요.
   </footer>
 </div>
+
+<dialog id="settings">
+  <form method="dialog" id="settingsForm">
+    <h2>사진 생성 설정</h2>
+    <p>Gemini API 키를 넣으면 검색할 때마다 사진처럼 보이는 이미지를 만들어 보여줘요.
+      키는 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>에서 받을 수 있어요.
+      키는 이 브라우저에만 저장되고 Google 말고는 어디에도 보내지 않아요.</p>
+    <label for="apiKey">Gemini API 키</label>
+    <input id="apiKey" type="password" autocomplete="off" placeholder="AIza...">
+    <label for="model">이미지 모델</label>
+    <input id="model" type="text" autocomplete="off">
+    <div class="row">
+      <button type="button" id="clearKey">키 지우기</button>
+      <button class="go" value="save">저장</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="viewer">
   <button class="close" aria-label="닫기">×</button>
@@ -261,13 +310,41 @@ function renderEntry(page, others, lang, note) {
   body.append(text);
 
   const entry = el('article', { className: 'entry' });
-  if (page.thumbnail) {
+  const heroSlot = el('div');
+  entry.append(heroSlot, body);
+  const showHero = (src, label, caption) => {
     const hero = el('button', { className: 'hero', type: 'button', ariaLabel: '사진 크게 보기' },
-      el('img', { src: page.thumbnail.source, alt: page.title }));
-    hero.onclick = () => openViewer(page.thumbnail.source, page.title);
-    entry.append(hero);
+      el('img', { src, alt: page.title }),
+      label ? el('span', { className: 'badge', textContent: label }) : null);
+    hero.onclick = () => openViewer(src, caption || page.title);
+    heroSlot.replaceChildren(hero);
+  };
+  const showWikiHero = () => {
+    if (page.thumbnail) showHero(page.thumbnail.source, '위키백과 사진');
+    else heroSlot.replaceChildren();
+  };
+  const heroMessage = (...kids) => heroSlot.replaceChildren(el('div', { className: 'hero-wait' }, ...kids));
+
+  if (!settings().key) {
+    showWikiHero();
+  } else {
+    heroMessage(el('div', { className: 'spinner' }), 'Gemini가 사진을 만드는 중… (10~20초)');
+    makePhoto(page).then((src) => {
+      if (mine !== token) return;
+      showHero(src, 'AI 생성 사진 · Gemini', `${page.title} (AI 생성 사진)`);
+    }).catch((err) => {
+      if (mine !== token) return;
+      console.error(err);
+      const retry = el('button', { className: 'linkish', type: 'button', textContent: '설정 확인' });
+      retry.onclick = () => openSettings();
+      if (page.thumbnail) {
+        showWikiHero();
+        heroSlot.append(el('p', { className: 'note', style: 'padding:8px 16px 0' }, `사진을 만들지 못했어요: ${err.message} `, retry));
+      } else {
+        heroMessage(`사진을 만들지 못했어요: ${err.message}`, retry);
+      }
+    });
   }
-  entry.append(body);
 
   const galleryBox = el('section');
   const nodes = [entry, galleryBox];
@@ -297,7 +374,7 @@ function renderEntry(page, others, lang, note) {
 
   gallery(lang, page.title).then((imgs) => {
     if (mine !== token) return;
-    const hero = page.pageimage && page.pageimage.replace(/_/g, ' ');
+    const hero = !settings().key && page.pageimage && page.pageimage.replace(/_/g, ' ');
     imgs = imgs.filter((i) => i.file.replace(/^[^:]+:/, '') !== hero);
     if (!imgs.length) return;
     const grid = el('div', { className: 'gallery' });
@@ -307,7 +384,7 @@ function renderEntry(page, others, lang, note) {
       b.onclick = () => openViewer(i.info.url, i.title);
       grid.append(b);
     }
-    galleryBox.append(el('h3', { textContent: '사진 더 보기' }), grid);
+    galleryBox.append(el('h3', { textContent: '실제 사진 더 보기' }), grid);
   }).catch(() => {});
 }
 
@@ -342,6 +419,78 @@ async function lookup(q) {
     if (mine === token) goBtn.disabled = false;
   }
 }
+
+// ---- Gemini 사진 생성 ----
+const DEFAULT_MODEL = 'gemini-2.5-flash-image';
+const photoCache = new Map(); // 같은 항목은 다시 만들지 않는다 (요금 절약)
+
+function settings() {
+  let key = '', model = '';
+  try { key = localStorage.getItem('geminiKey') || ''; model = localStorage.getItem('geminiModel') || ''; } catch {}
+  return { key, model: model || DEFAULT_MODEL };
+}
+
+function photoPrompt(page) {
+  const summary = (page.extract || '').split(/\n/)[0].slice(0, 600);
+  return [
+    `Create a photorealistic, high-quality photograph for an encyclopedia entry about "${page.title}".`,
+    page.description ? `It is: ${page.description}.` : '',
+    summary ? `Background information (Korean): ${summary}` : '',
+    'Show the subject clearly and accurately, as a real documentary or nature photograph would:',
+    'natural lighting, realistic textures, sharp focus, 16:9 landscape framing.',
+    'If the subject is abstract or a historical event, show a realistic scene, object or place that represents it.',
+    'No text, captions, labels, watermarks or borders in the image.',
+  ].filter(Boolean).join(' ');
+}
+
+async function makePhoto(page) {
+  const { key, model } = settings();
+  const cacheKey = model + '|' + page.title;
+  if (photoCache.has(cacheKey)) return photoCache.get(cacheKey);
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: photoPrompt(page) }] }],
+      generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '16:9' } },
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = (data.error && data.error.message) || 'HTTP ' + res.status;
+    if (res.status === 400 && /api key/i.test(msg)) throw new Error('API 키가 올바르지 않아요');
+    if (res.status === 403) throw new Error('이 API 키로는 사용할 수 없어요');
+    if (res.status === 404) throw new Error(`"${model}" 모델을 찾을 수 없어요`);
+    if (res.status === 429) throw new Error('사용 한도를 넘었어요. 잠시 뒤 다시 시도해 주세요');
+    throw new Error(msg);
+  }
+  const parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+  const img = parts.find((p) => p.inlineData && p.inlineData.data);
+  if (!img) throw new Error('이 주제로는 사진이 만들어지지 않았어요');
+  const src = `data:${img.inlineData.mimeType || 'image/png'};base64,${img.inlineData.data}`;
+  photoCache.set(cacheKey, src);
+  return src;
+}
+
+function openSettings() {
+  const s = settings();
+  $('#apiKey').value = s.key;
+  $('#model').value = s.model;
+  $('#settings').showModal();
+}
+$('#openSettings').onclick = openSettings;
+$('#clearKey').onclick = () => {
+  try { localStorage.removeItem('geminiKey'); } catch {}
+  $('#apiKey').value = '';
+};
+$('#settingsForm').addEventListener('submit', () => {
+  try {
+    localStorage.setItem('geminiKey', $('#apiKey').value.trim());
+    localStorage.setItem('geminiModel', $('#model').value.trim() || DEFAULT_MODEL);
+  } catch {}
+  const q = input.value.trim();
+  if (q && document.body.classList.contains('has-result')) lookup(q);
+});
 
 // 최근 찾아본 단어 (이 브라우저에만 저장)
 function recent() {
