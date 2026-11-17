@@ -12,6 +12,8 @@
 <meta name="theme-color" content="#17181a" media="(prefers-color-scheme: dark)">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>사진 백과사전</title>
+<!-- config.js에 미리 넣어 둔 Gemini 키가 있으면 읽는다 (GitHub에는 올리지 않는 파일) -->
+<script src="config.js" onerror="void 0"></script>
 <style>
   :root {
     --bg: #f7f4ec;
@@ -455,6 +457,7 @@ let workingModel = null;
 function settings() {
   let key = '', model = '';
   try { key = localStorage.getItem('geminiKey') || ''; model = localStorage.getItem('geminiModel') || ''; } catch {}
+  if (!key && window.GEMINI_KEY) key = String(window.GEMINI_KEY); // config.js에 넣어 둔 키
   // 예전 기본값(gemini-2.5-flash-image)으로 저장된 설정은 새 기본값으로 올린다
   if (model === 'gemini-2.5-flash-image') model = '';
   return { key, model: model || DEFAULT_MODEL };
