@@ -577,6 +577,14 @@ function fromHash() {
   }
 }
 
+// 주소 끝에 #key=키 를 붙여 열면 키를 이 기기에 저장하고 주소에서는 지운다.
+// (# 뒤의 내용은 서버로 보내지지 않아서 GitHub에도 남지 않는다)
+if (location.hash.startsWith('#key=')) {
+  const k = decodeURIComponent(location.hash.slice(5)).trim();
+  try { if (k) localStorage.setItem('geminiKey', k); } catch {}
+  history.replaceState(null, '', location.pathname + location.search);
+}
+
 $('#form').addEventListener('submit', (e) => { e.preventDefault(); go(input.value); });
 window.addEventListener('hashchange', fromHash);
 renderChips();
