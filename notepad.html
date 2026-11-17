@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<!--BODY-START-->
+<title>메모장</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="메모장">
+<style>
+  /* Layout: a note list on the left, the open note on the right; on narrow screens one at a time. */
+  :root {
+    --bg: #f7f4ec;
+    --surface: #fffdf8;
+    --ink: #22201b;
+    --muted: #6f695c;
+    --line: #ddd6c6;
+    --accent: #1f5c4d;
+    --accent-ink: #ffffff;
+    --accent-soft: #e4eee9;
+    --danger: #a3361f;
+    --sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17181a; --surface: #202225; --ink: #ece8df; --muted: #a09a8c; --line: #34373b;
+      --accent: #7fcfb8; --accent-ink: #10201c; --accent-soft: #23302c; --danger: #f08a73;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17181a; --surface: #202225; --ink: #ece8df; --muted: #a09a8c; --line: #34373b;
+    --accent: #7fcfb8; --accent-ink: #10201c; --accent-soft: #23302c; --danger: #f08a73;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.6;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .app {
+    height: 100%; display: grid; grid-template-columns: 300px minmax(0, 1fr);
+    padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
+  }
+  .side {
+    display: flex; flex-direction: column; min-height: 0;
+    border-right: 1px solid var(--line); background: var(--surface);
+  }
+  .side-head { display: grid; gap: 10px; padding: 16px 16px 12px; }
+  .side-head .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+  .new {
+    border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-ink);
+    padding: 7px 14px; font-weight: 700; white-space: nowrap;
+  }
+  #search {
+    width: 100%; font: inherit; font-size: 15px; padding: 7px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink);
+  }
+  .list { list-style: none; margin: 0; padding: 0 8px 16px; overflow-y: auto; flex: 1; }
+  .list li { margin: 0; }
+  .item {
+    width: 100%; text-align: left; border: 0; background: transparent; border-radius: 8px;
+    padding: 10px 12px; display: grid; gap: 2px;
+  }
+  .item:hover { background: var(--bg); }
+  .item.on { background: var(--accent-soft); }
+  .item b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item span { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .empty-list { color: var(--muted); font-size: 14px; padding: 12px; }
+
+  .editor { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .bar {
+    display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+    border-bottom: 1px solid var(--line); min-height: 52px;
+  }
+  .back { display: none; border: 0; background: none; color: var(--accent); font-weight: 600; padding: 4px 0; }
+  .meta { flex: 1; color: var(--muted); font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .del { border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 5px 12px; font-size: 14px; color: var(--muted); }
+  .del.arm { border-color: var(--danger); color: var(--danger); font-weight: 700; }
+  #text {
+    flex: 1; width: 100%; resize: none; border: 0; outline: 0; background: var(--bg); color: var(--ink);
+    font: inherit; font-size: 17px; line-height: 1.75;
+    padding: 20px max(16px, 4vw) calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+  #text::placeholder { color: var(--muted); }
+  .blank { flex: 1; display: grid; place-content: center; text-align: center; color: var(--muted); padding: 24px; gap: 12px; }
+
+  @media (max-width: 700px) {
+    .app { grid-template-columns: minmax(0, 1fr); }
+    .app.editing .side { display: none; }
+    .app:not(.editing) .editor { display: none; }
+    .back { display: inline-block; }
+    .side { border-right: 0; }
+  }
+</style>
+
+<div class="app" id="app">
+  <aside class="side">
+    <div class="side-head">
+      <div class="top">
+        <h1>메모장</h1>
+        <button class="new" id="new" type="button">+ 새 메모</button>
+      </div>
+      <input id="search" type="search" placeholder="메모 검색" aria-label="메모 검색" autocomplete="off">
+    </div>
+    <ul class="list" id="list"></ul>
+  </aside>
+  <section class="editor" id="editor"></section>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const app = $('#app'), list = $('#list'), editor = $('#editor'), search = $('#search');
+const KEY = 'notes-v1';
+let notes = load();
+let current = null;
+let saveTimer = null;
+
+function load() {
+  try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (Array.isArray(v)) return v; } catch {}
+  return [{
+    id: 'welcome', updated: Date.now(),
+    text: '메모장 사용법\n\n+ 새 메모를 눌러 메모를 만들어요.\n쓰는 대로 자동으로 저장돼요.\n첫 줄이 메모 제목이 돼요.\n\n메모는 이 기기의 이 브라우저에만 저장돼요.',
+  }];
+}
+function persist() {
+  try { localStorage.setItem(KEY, JSON.stringify(notes)); } catch {}
+}
+
+function el(tag, props, ...kids) {
+  const n = Object.assign(document.createElement(tag), props || {});
+  n.append(...kids.filter((k) => k != null));
+  return n;
+}
+const titleOf = (t) => (t.split('\n').find((l) => l.trim()) || '새 메모').trim();
+const previewOf = (t) => t.split('\n').map((l) => l.trim()).filter(Boolean).slice(1).join(' ') || '내용 없음';
+function when(ts) {
+  const d = new Date(ts), now = new Date();
+  const hm = d.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === now.toDateString()) return '오늘 ' + hm;
+  return d.toLocaleDateString('ko-KR', { year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric', month: 'long', day: 'numeric' }) + ' ' + hm;
+}
+
+function renderList() {
+  const q = search.value.trim().toLowerCase();
+  const shown = notes
+    .filter((n) => !q || n.text.toLowerCase().includes(q))
+    .sort((a, b) => b.updated - a.updated);
+  if (!shown.length) {
+    list.replaceChildren(el('li', { className: 'empty-list', textContent: q ? '찾는 메모가 없어요.' : '메모가 없어요. + 새 메모를 눌러 보세요.' }));
+    return;
+  }
+  list.replaceChildren(...shown.map((n) => {
+    const b = el('button', { type: 'button', className: 'item' + (current && n.id === current.id ? ' on' : '') },
+      el('b', { textContent: titleOf(n.text) }),
+      el('span', { textContent: when(n.updated) + '  ' + previewOf(n.text) }));
+    b.onclick = () => open(n.id);
+    return el('li', null, b);
+  }));
+}
+
+function renderEditor() {
+  if (!current) {
+    app.classList.remove('editing');
+    const b = el('button', { className: 'new', type: 'button', textContent: '+ 새 메모' });
+    b.onclick = create;
+    editor.replaceChildren(el('div', { className: 'blank' }, '왼쪽에서 메모를 고르거나 새로 만들어요.', el('div', null, b)));
+    return;
+  }
+  app.classList.add('editing');
+  const back = el('button', { className: 'back', type: 'button', textContent: '‹ 목록' });
+  back.onclick = () => { current = null; renderEditor(); renderList(); };
+  const meta = el('div', { className: 'meta', id: 'meta', textContent: '마지막 수정 ' + when(current.updated) });
+  const del = el('button', { className: 'del', type: 'button', textContent: '삭제' });
+  let armTimer;
+  del.onclick = () => {
+    if (!del.classList.contains('arm')) {
+      del.classList.add('arm'); del.textContent = '한 번 더 누르면 삭제';
+      armTimer = setTimeout(() => { del.classList.remove('arm'); del.textContent = '삭제'; }, 3000);
+      return;
+    }
+    clearTimeout(armTimer);
+    notes = notes.filter((n) => n.id !== current.id);
+    persist(); current = null; renderEditor(); renderList();
+  };
+  const ta = el('textarea', { id: 'text', placeholder: '여기에 메모를 써요. 첫 줄이 제목이 돼요.', value: current.text, spellcheck: false });
+  ta.addEventListener('input', () => {
+    current.text = ta.value; current.updated = Date.now();
+    meta.textContent = '저장 중…';
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { persist(); meta.textContent = '저장됨 · ' + when(current.updated); renderList(); }, 400);
+  });
+  editor.replaceChildren(el('div', { className: 'bar' }, back, meta, del), ta);
+  return ta;
+}
+
+function open(id) {
+  flush();
+  current = notes.find((n) => n.id === id) || null;
+  renderEditor(); renderList();
+}
+function create() {
+  flush();
+  const n = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text: '', updated: Date.now() };
+  notes.push(n); current = n; persist();
+  search.value = '';
+  const ta = renderEditor(); renderList();
+  if (ta) ta.focus();
+}
+function flush() {
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; persist(); }
+  // 아무것도 안 쓴 새 메모는 남기지 않는다
+  if (current && !current.text.trim()) { notes = notes.filter((n) => n !== current); persist(); }
+}
+
+$('#new').onclick = create;
+search.addEventListener('input', renderList);
+window.addEventListener('pagehide', flush);
+current = window.innerWidth > 700 ? [...notes].sort((a, b) => b.updated - a.updated)[0] || null : null;
+renderEditor(); renderList();
+</script>
+<!--BODY-END-->
+</body>
+</html>
