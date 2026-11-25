@@ -1,7 +1,815 @@
-echo "# andy" >> README.md
-git init
-git add README.md
-git commit -m "first commit"
-git branch -M main
-git remote add origin https://github.com/ahm04044812/andy.git
-git push -u origin main
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>노래하는 피아노</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one column instrument — search on top, the score strip, then the keyboard as the hero object. */
+:root {
+  --bg: #eef0f3;
+  --panel: #ffffff;
+  --ink: #16181d;
+  --muted: #5d6370;
+  --line: #d6dae1;
+  --accent: #2f55d4;       /* melody */
+  --accent-ink: #ffffff;
+  --accomp: #d98a12;       /* accompaniment */
+  --user: #1f9d74;         /* your own playing */
+  --rec: #d33a3a;
+  --case: #17191e;         /* piano case */
+  --ivory: #fbfbf8;
+  --ivory-edge: #c9ccd2;
+  --ebony: #1b1c20;
+  --font-display: "Gowun Batang", "Nanum Myeongjo", serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101216; --panel: #191c22; --ink: #eceef2; --muted: #9aa1ad; --line: #2b3039;
+    --accent: #6f8cff; --accent-ink: #0b0d12; --accomp: #f0a83a; --user: #3cc795; --rec: #ff6b6b;
+    --case: #07080a; --ivory: #f1f1ec; --ivory-edge: #8d9099; --ebony: #121317;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101216; --panel: #191c22; --ink: #eceef2; --muted: #9aa1ad; --line: #2b3039;
+  --accent: #6f8cff; --accent-ink: #0b0d12; --accomp: #f0a83a; --user: #3cc795; --rec: #ff6b6b;
+  --case: #07080a; --ivory: #f1f1ec; --ivory-edge: #8d9099; --ebony: #121317;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 48px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px; }
+h1 { font-family: var(--font-display); font-size: clamp(28px, 5vw, 40px); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0; }
+h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+/* search */
+.search { display: flex; gap: 8px; }
+.search input {
+  flex: 1; min-width: 0; font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+}
+.search input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button {
+  font: inherit; font-weight: 600; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--ink); padding: 10px 16px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+button:hover { border-color: var(--muted); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.rec.on { background: var(--rec); border-color: var(--rec); color: #fff; }
+button:disabled { opacity: .45; cursor: default; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  font-weight: 500; padding: 6px 12px; border-radius: 999px; font-size: 14px;
+  background: var(--bg); border: 1px solid var(--line);
+}
+.chip.playing { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.chip small { color: var(--muted); font-weight: 400; margin-left: 4px; }
+.chip.playing small { color: inherit; opacity: .8; }
+.msg { margin: 0; color: var(--muted); min-height: 1.5em; }
+.msg.warn { color: var(--rec); }
+
+/* now playing */
+.now { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; align-items: center; }
+.now-title { font-family: var(--font-display); font-size: 22px; margin: 0; overflow-wrap: anywhere; }
+.now-meta { color: var(--muted); font-size: 13px; font-family: var(--font-mono); }
+.transport { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.progress { grid-column: 1 / -1; height: 6px; background: var(--bg); border-radius: 6px; overflow: hidden; border: 1px solid var(--line); }
+.progress > i { display: block; height: 100%; width: 0; background: var(--accent); }
+.strip { grid-column: 1 / -1; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; }
+.strip-inner { display: flex; gap: 4px; width: max-content; }
+.n {
+  font-family: var(--font-mono); font-size: 13px; padding: 4px 7px; border-radius: 6px;
+  background: var(--bg); color: var(--muted); border: 1px solid transparent; min-width: 30px; text-align: center;
+}
+.n.bar { margin-left: 8px; }
+.n.done { color: var(--ink); }
+.n.cur { background: var(--accent); color: var(--accent-ink); }
+
+.settings { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; }
+.settings label { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+.settings input[type=range] { width: 140px; accent-color: var(--accent); }
+.settings input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+output { font-family: var(--font-mono); color: var(--ink); font-variant-numeric: tabular-nums; min-width: 3.5em; }
+.legend { display: inline-flex; gap: 14px; font-size: 13px; color: var(--muted); margin-left: auto; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+
+/* piano */
+.piano-case { background: var(--case); border-radius: 16px; padding: 14px 14px 18px; box-shadow: 0 18px 40px -24px rgba(0,0,0,.6); }
+.piano-scroll { overflow-x: auto; scrollbar-width: thin; }
+.piano { position: relative; height: 210px; display: flex; min-width: 760px; user-select: none; -webkit-user-select: none; touch-action: none; }
+.key { position: relative; cursor: pointer; }
+.white {
+  flex: 1; background: var(--ivory); border: 1px solid var(--ivory-edge); border-top: none;
+  border-radius: 0 0 7px 7px; margin: 0 1px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+  padding-bottom: 10px; gap: 2px; color: #6a6e77; font-size: 12px;
+  transition: background .06s;
+}
+.white .solfa { font-weight: 600; color: #3d4049; font-size: 13px; }
+.white .pc { font-family: var(--font-mono); font-size: 11px; color: #9a9ea6; }
+.black {
+  position: absolute; top: 0; width: calc(100% / var(--whites) * .62); height: 62%;
+  background: linear-gradient(var(--ebony), #2a2c33); border-radius: 0 0 5px 5px; z-index: 2;
+  transform: translateX(-50%); box-shadow: 0 3px 4px rgba(0,0,0,.35);
+  display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px;
+}
+.black .pc { font-family: var(--font-mono); font-size: 10px; color: #8a8d96; }
+.key.c-mark::after { content: attr(data-oct); position: absolute; top: 6px; font-size: 10px; color: #a2a6ae; font-family: var(--font-mono); }
+.key.on-melody { background: var(--accent) !important; }
+.key.on-accomp { background: var(--accomp) !important; }
+.key.on-user { background: var(--user) !important; }
+.key.on-melody .solfa, .key.on-accomp .solfa, .key.on-user .solfa,
+.key.on-melody .pc, .key.on-accomp .pc, .key.on-user .pc { color: #fff; }
+.piano-foot { display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: space-between; color: #9ea3ad; font-size: 13px; margin-top: 12px; }
+.piano-foot kbd { font-family: var(--font-mono); background: #2a2d34; color: #e6e8ec; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+
+/* custom */
+.two { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 760px) { .two { grid-template-columns: minmax(0, 1fr); } .now { grid-template-columns: minmax(0, 1fr); } .transport { justify-content: flex-start; } .legend { margin-left: 0; } }
+textarea {
+  font-family: var(--font-mono); font-size: 14px; line-height: 1.6; width: 100%; min-height: 110px; resize: vertical;
+  padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+}
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row input[type=text] {
+  font: inherit; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); flex: 1; min-width: 140px;
+}
+.help { color: var(--muted); font-size: 13px; margin: 0; }
+.help code { font-family: var(--font-mono); background: var(--bg); padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+.mine { display: flex; flex-wrap: wrap; gap: 8px; }
+.mine .chip { display: inline-flex; gap: 6px; align-items: center; }
+.mine .x { border: none; background: none; padding: 0 2px; color: var(--muted); font-weight: 400; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>노래하는 피아노</h1>
+    <p class="sub">노래 제목을 치면 피아노가 멜로디와 반주를 함께 연주해요.</p>
+  </header>
+
+  <section class="panel" aria-label="노래 찾기">
+    <form class="search" id="searchForm" autocomplete="off">
+      <input id="q" type="search" placeholder="노래 제목을 입력하세요 (예: 작은 별, 생일, 징글벨)" aria-label="노래 제목">
+      <button class="primary" type="submit">▶ 연주</button>
+    </form>
+    <p class="msg" id="msg" role="status"></p>
+    <div class="chips" id="songChips"></div>
+  </section>
+
+  <section class="panel" aria-label="지금 연주 중">
+    <div class="now">
+      <div>
+        <p class="now-title" id="nowTitle">노래를 골라 주세요</p>
+        <div class="now-meta" id="nowMeta">건반을 직접 눌러도 소리가 나요</div>
+      </div>
+      <div class="transport">
+        <button id="playBtn" class="primary" type="button" disabled>▶ 재생</button>
+        <button id="stopBtn" type="button" disabled>■ 정지</button>
+        <button id="recBtn" class="rec" type="button">● 녹음</button>
+        <button id="replayBtn" type="button" disabled>↺ 녹음 듣기</button>
+      </div>
+      <div class="progress"><i id="bar"></i></div>
+      <div class="strip" id="strip"><div class="strip-inner" id="stripInner"></div></div>
+    </div>
+    <div class="settings">
+      <label for="tempo">빠르기 <input id="tempo" type="range" min="50" max="160" step="5" value="100"> <output id="tempoOut">100%</output></label>
+      <label for="vol">음량 <input id="vol" type="range" min="0" max="100" value="75"> <output id="volOut">75</output></label>
+      <label for="accomp"><input id="accomp" type="checkbox" checked> 자동 반주</label>
+      <div class="legend"><span style="--c: var(--accent)">멜로디</span><span style="--c: var(--accomp)">반주</span><span style="--c: var(--user)">내 연주</span></div>
+    </div>
+  </section>
+
+  <div class="piano-case">
+    <div class="piano-scroll" id="pianoScroll"><div class="piano" id="piano"></div></div>
+    <div class="piano-foot">
+      <span>컴퓨터 키보드: <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd><kbd>G</kbd><kbd>H</kbd><kbd>J</kbd><kbd>K</kbd> = 도레미파솔라시도 · 검은 건반 <kbd>W</kbd><kbd>E</kbd><kbd>T</kbd><kbd>Y</kbd><kbd>U</kbd></span>
+      <span>옥타브 <kbd>Z</kbd> 내리기 <kbd>X</kbd> 올리기 · 현재 <b id="octOut">4</b></span>
+    </div>
+  </div>
+
+  <div class="two">
+    <section class="panel" aria-label="직접 입력">
+      <h2>원하는 노래 직접 넣기</h2>
+      <p class="help">목록에 없는 노래는 계이름으로 적어 주세요. <code>도레미</code>처럼 붙여 써도 되고, <code>C4 D4 E4</code>도 돼요.
+        길이는 숫자로(<code>도2</code> = 2박, <code>레.5</code> = 반 박), <code>-</code>는 앞 음 1박 늘이기, <code>쉼</code>은 쉼표,
+        <code>높은도</code> 또는 <code>도'</code>는 한 옥타브 위, <code>|</code>는 마디 구분이에요.</p>
+      <textarea id="custom" aria-label="계이름 입력">솔솔라라 솔솔미2 | 솔솔미미 레3 | 솔솔라라 솔솔미2 | 솔미레미 도3</textarea>
+      <div class="row">
+        <input id="customTitle" type="text" placeholder="노래 이름 (저장할 때)" aria-label="노래 이름">
+        <button id="customPlay" class="primary" type="button">▶ 들려줘</button>
+        <button id="customSave" type="button">저장</button>
+      </div>
+      <p class="msg" id="customMsg" role="status"></p>
+    </section>
+    <section class="panel" aria-label="내 노래">
+      <h2>내 노래</h2>
+      <p class="help">저장한 노래와 녹음은 이 브라우저에만 남아요. 녹음은 ● 녹음을 누르고 건반을 친 다음 다시 누르면 끝나요.</p>
+      <div class="mine" id="mine"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- music helpers ---------- */
+const PC = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+const KO_PC = { '도':0, '레':2, '미':4, '파':5, '솔':7, '라':9, '시':11 };
+const KO_NAMES = ['도','도#','레','레#','미','파','파#','솔','솔#','라','라#','시'];
+const nameToMidi = (s) => {
+  const m = /^([A-G])([#b]?)(-?\d)$/.exec(s);
+  if (!m) throw new Error('bad note ' + s);
+  return 12 * (+m[3] + 1) + PC[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
+};
+const midiToFreq = (m) => 440 * Math.pow(2, (m - 69) / 12);
+const koName = (m) => KO_NAMES[((m % 12) + 12) % 12];
+
+/* ---------- song library (all public-domain / traditional melodies) ---------- */
+// notes: "NOTE[:beats]" tokens, R = rest, | = bar line (ignored by timing, used by the strip)
+const SONGS = [
+  { id:'twinkle', title:'작은 별', alias:['반짝반짝','twinkle','little star','작은별'], bpm:100, beats:4, key:0,
+    notes:'C4 C4 G4 G4 | A4 A4 G4:2 | F4 F4 E4 E4 | D4 D4 C4:2 | G4 G4 F4 F4 | E4 E4 D4:2 | G4 G4 F4 F4 | E4 E4 D4:2 | C4 C4 G4 G4 | A4 A4 G4:2 | F4 F4 E4 E4 | D4 D4 C4:2' },
+  { id:'butterfly', title:'나비야', alias:['나비','butterfly','hanschen'], bpm:112, beats:4, key:0,
+    notes:'G4 E4 E4:2 | F4 D4 D4:2 | C4 D4 E4 F4 | G4 G4 G4:2 | G4 E4 E4 E4 | F4 D4 D4 D4 | C4 E4 G4 G4 | E4 E4 E4:2 | D4 D4 D4 D4 | D4 E4 F4:2 | E4 E4 E4 E4 | E4 F4 G4:2 | G4 E4 E4:2 | F4 D4 D4:2 | C4 E4 G4 G4 | C4:4' },
+  { id:'airplane', title:'떴다 떴다 비행기', alias:['비행기','mary had a little lamb','mary','떴다떴다'], bpm:112, beats:4, key:0,
+    notes:'E4:1.5 D4:.5 C4 D4 | E4 E4 E4:2 | D4 D4 D4:2 | E4 G4 G4:2 | E4:1.5 D4:.5 C4 D4 | E4 E4 E4:2 | D4 D4 E4 D4 | C4:4' },
+  { id:'bears', title:'곰 세 마리', alias:['곰세마리','곰','three bears'], bpm:108, beats:4, key:0,
+    notes:'C4 C4:.5 C4:.5 C4 C4 | E4 G4:.5 G4:.5 E4 C4 | G4:.5 G4:.5 E4 G4:.5 G4:.5 E4 | C4 C4 C4:2 | G4 G4 E4 C4 | G4 G4 G4:2 | G4 G4 E4 C4 | G4 G4 G4:2 | G4 G4 E4 C4 | G4:.5 G4:.5 G4:.5 A4:.5 G4:2 | C5 G4 C5 G4 | E4 D4 C4:2' },
+  { id:'birthday', title:'생일 축하합니다', alias:['생일','생일축하','happy birthday','birthday','축하'], bpm:100, beats:3, pickup:1, key:0,
+    chords:['C','G','G','C','C','F','G','C'],
+    notes:'G4:.75 G4:.25 | A4 G4 C5 | B4:2 G4:.75 G4:.25 | A4 G4 D5 | C5:2 G4:.75 G4:.25 | G5 E5 C5 | B4 A4 F5:.75 F5:.25 | E5 C5 D5 | C5:3' },
+  { id:'ode', title:'환희의 송가', alias:['환희','베토벤','ode to joy','합창','교향곡'], bpm:112, beats:4, key:0,
+    notes:'E4 E4 F4 G4 | G4 F4 E4 D4 | C4 C4 D4 E4 | E4:1.5 D4:.5 D4:2 | E4 E4 F4 G4 | G4 F4 E4 D4 | C4 C4 D4 E4 | D4:1.5 C4:.5 C4:2 | D4 D4 E4 C4 | D4 E4:.5 F4:.5 E4 C4 | D4 E4:.5 F4:.5 E4 D4 | C4 D4 G3:2 | E4 E4 F4 G4 | G4 F4 E4 D4 | C4 C4 D4 E4 | D4:1.5 C4:.5 C4:2' },
+  { id:'jingle', title:'징글벨', alias:['jingle bells','jingle','크리스마스','캐롤'], bpm:132, beats:4, key:0,
+    notes:'E4 E4 E4:2 | E4 E4 E4:2 | E4 G4 C4:1.5 D4:.5 | E4:4 | F4 F4 F4:1.5 F4:.5 | F4 E4 E4 E4:.5 E4:.5 | E4 D4 D4 E4 | D4:2 G4:2 | E4 E4 E4:2 | E4 E4 E4:2 | E4 G4 C4:1.5 D4:.5 | E4:4 | F4 F4 F4 F4 | F4 E4 E4 E4:.5 E4:.5 | G4 G4 F4 D4 | C4:4' },
+  { id:'london', title:'런던 다리', alias:['london bridge','런던','london'], bpm:112, beats:4, key:0,
+    notes:'G4:1.5 A4:.5 G4 F4 | E4 F4 G4:2 | D4 E4 F4:2 | E4 F4 G4:2 | G4:1.5 A4:.5 G4 F4 | E4 F4 G4:2 | D4:2 G4:2 | E4 C4:3' },
+  { id:'amazing', title:'어메이징 그레이스', alias:['amazing grace','나 같은 죄인','찬송가','그레이스'], bpm:84, beats:3, pickup:1, key:0,
+    notes:'G3 | C4:2 E4:.5 C4:.5 | E4:2 D4 | C4:2 A3 | G3:2 G3 | C4:2 E4:.5 C4:.5 | E4:2 D4 | G4:3 | G4:2 E4 | G4:2 E4:.5 C4:.5 | E4:2 D4 | C4:2 A3 | G3:2 G3 | C4:2 E4:.5 C4:.5 | E4:2 D4 | C4:3' },
+  { id:'elise', title:'엘리제를 위하여', alias:['엘리제','fur elise','für elise','베토벤 엘리제'], bpm:150, beats:3, pickup:1, key:9, minor:true,
+    chords:[null,'Am','E','Am',null,'Am','E','Am'],
+    notes:'E5:.5 D#5:.5 | E5:.5 D#5:.5 E5:.5 B4:.5 D5:.5 C5:.5 | A4:1 R:.5 C4:.5 E4:.5 A4:.5 | B4:1 R:.5 E4:.5 G#4:.5 B4:.5 | C5:1 R:.5 E4:.5 E5:.5 D#5:.5 | E5:.5 D#5:.5 E5:.5 B4:.5 D5:.5 C5:.5 | A4:1 R:.5 C4:.5 E4:.5 A4:.5 | B4:1 R:.5 E4:.5 C5:.5 B4:.5 | A4:3' },
+];
+
+function parseNotes(str) {
+  const ev = []; let t = 0; const bars = [];
+  for (const tok of str.trim().split(/\s+/)) {
+    if (tok === '|') { bars.push(ev.length); continue; }
+    const [n, d] = tok.split(':');
+    const dur = d ? parseFloat(d) : 1;
+    ev.push({ midi: n === 'R' ? null : nameToMidi(n), start: t, dur });
+    t += dur;
+  }
+  return { events: ev, total: t, barStarts: new Set(bars) };
+}
+
+/* ---------- auto accompaniment ---------- */
+function parseChord(name) {
+  const m = /^([A-G])([#b]?)(m?)/.exec(name);
+  return { root: (PC[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + 12) % 12, minor: m[3] === 'm' };
+}
+const triad = (root, minor) => [root, (root + (minor ? 3 : 4)) % 12, (root + 7) % 12];
+
+function pickChords(song, melody, total) {
+  // score diatonic chords against the melody notes in each bar
+  const key = song.key || 0;
+  const cands = song.minor
+    ? [[0,1,1.15],[5,1,1],[7,0,1.05],[8,0,.9],[3,0,.9]]
+    : [[0,0,1.15],[5,0,1],[7,0,1.05],[9,1,.88],[2,1,.82]];
+  const pickup = song.pickup || 0, B = song.beats;
+  const nBars = Math.ceil((total - pickup) / B - 1e-6);
+  const out = []; let prev = null;
+  for (let b = 0; b < nBars; b++) {
+    const s = pickup + b * B, e = s + B;
+    const w = new Array(12).fill(0); let any = false;
+    for (const n of melody) {
+      if (n.midi == null) continue;
+      const ov = Math.min(e, n.start + n.dur) - Math.max(s, n.start);
+      if (ov <= 0) continue;
+      any = true;
+      w[n.midi % 12] += ov * (Math.abs(n.start - s) < 1e-6 ? 1.6 : 1);
+    }
+    if (!any) { out.push(prev); continue; }
+    let best = null, bestScore = -1;
+    for (const [deg, minor, pref] of cands) {
+      const root = (key + deg) % 12;
+      const tones = triad(root, !!minor);
+      let sc = 0, miss = 0;
+      for (let pc = 0; pc < 12; pc++) { if (tones.includes(pc)) sc += w[pc]; else miss += w[pc]; }
+      sc = (sc - miss * .35) * pref;
+      if (b === nBars - 1 && deg === 0) sc += 100;            // end on the tonic
+      if (sc > bestScore) { bestScore = sc; best = { root, minor: !!minor }; }
+    }
+    out.push(best); prev = best;
+  }
+  return out;
+}
+
+function buildAccomp(song, melody, total) {
+  const B = song.beats, pickup = song.pickup || 0;
+  const chords = song.chords ? song.chords.map(c => c ? parseChord(c) : null) : pickChords(song, melody, total);
+  const ev = [];
+  chords.forEach((ch, b) => {
+    if (!ch) return;
+    const s = pickup + b * B;
+    let root = 48 + ch.root;                      // C3..B3
+    if (root > 55) root -= 12;                    // keep the bass between G#2 and G3
+    const third = root + (ch.minor ? 3 : 4) + 12, fifth = root + 7, oct = root + 12;
+    const last = b === chords.length - 1;
+    if (last) {
+      [root, fifth, third].forEach((m, i) => ev.push({ midi: m, start: s + i * 0.08, dur: Math.max(1, total - s) }));
+      return;
+    }
+    const pattern = B === 3 ? [root, fifth, oct] : B === 2 ? [root, fifth] : [root, fifth, third, fifth];
+    const steps = Math.max(1, Math.round(B));
+    for (let i = 0; i < steps; i++) {
+      const st = s + i * (B / steps);
+      if (st >= total) break;
+      ev.push({ midi: pattern[i % pattern.length], start: st, dur: B / steps });
+    }
+  });
+  return ev;
+}
+
+/* ---------- user text → song ---------- */
+function parseCustom(text, title) {
+  const re = /(낮은\s*|높은\s*)?(도|레|미|파|솔|라|시)([#♯b♭]?)(['’,]*)(\d*\.?\d+)?|([A-Ga-g])([#b♯♭]?)(\d)?(?::(\d*\.?\d+))?|(쉼|R)(\d*\.?\d+|:\d*\.?\d+)?|(-)|(\|)/g;
+  const notes = []; let t = 0; const bars = new Set(); let m;
+  while ((m = re.exec(text))) {
+    if (m[13]) { bars.add(notes.length); continue; }
+    if (m[12]) { if (notes.length) { notes[notes.length - 1].dur += 1; t += 1; } continue; }
+    if (m[10]) {
+      const d = m[11] ? parseFloat(m[11].replace(':', '')) : 1;
+      notes.push({ midi: null, start: t, dur: d }); t += d; continue;
+    }
+    let midi, dur;
+    if (m[2]) {
+      let oct = 4;
+      if (m[1] && m[1].startsWith('낮은')) oct--;
+      if (m[1] && m[1].startsWith('높은')) oct++;
+      for (const c of m[4] || '') oct += c === ',' ? -1 : 1;
+      const acc = /[#♯]/.test(m[3]) ? 1 : /[b♭]/.test(m[3]) ? -1 : 0;
+      midi = 12 * (oct + 1) + KO_PC[m[2]] + acc;
+      dur = m[5] ? parseFloat(m[5]) : 1;
+    } else {
+      const acc = /[#♯]/.test(m[7]) ? 1 : /[b♭]/.test(m[7]) ? -1 : 0;
+      const oct = m[8] ? +m[8] : 4;
+      midi = 12 * (oct + 1) + PC[m[6].toUpperCase()] + acc;
+      dur = m[9] ? parseFloat(m[9]) : 1;
+    }
+    if (!(dur > 0)) dur = 1;
+    notes.push({ midi, start: t, dur }); t += dur;
+  }
+  if (!notes.some(n => n.midi != null)) return null;
+  // guess the key: the major scale that fits best, nudged toward the first and last notes
+  const scale = [0,2,4,5,7,9,11];
+  const pitched = notes.filter(n => n.midi != null);
+  let bestKey = 0, best = -1;
+  for (let k = 0; k < 12; k++) {
+    let s = 0;
+    for (const n of pitched) if (scale.includes((n.midi - k + 120) % 12)) s += n.dur;
+    if ((pitched[pitched.length - 1].midi - k + 120) % 12 === 0) s += 2;
+    if ((pitched[0].midi - k + 120) % 12 === 0) s += .5;
+    if (s > best) { best = s; bestKey = k; }
+  }
+  return { id: 'custom', title: title || '내가 넣은 노래', bpm: 100, beats: 4, key: bestKey, parsed: { events: notes, total: t, barStarts: bars } };
+}
+
+/* ---------- audio: a small additive piano voice ---------- */
+let ctx = null, master = null;
+function audio() {
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -14; comp.ratio.value = 4;
+    master = ctx.createGain();
+    master.gain.value = volume();
+    master.connect(comp).connect(ctx.destination);
+  }
+  if (ctx.state === 'suspended') ctx.resume();
+  return ctx;
+}
+const PARTIALS = [[1, 1], [2, .42], [3, .2], [4, .11], [5, .05], [6, .03]];
+function voice(midi, when, vel, dest) {
+  const f0 = midiToFreq(midi);
+  const g = ctx.createGain();
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(Math.min(12000, f0 * 9), when);
+  lp.frequency.setTargetAtTime(Math.max(f0 * 2.2, 500), when + .02, .35);
+  g.connect(lp).connect(dest);
+  const peak = .22 * vel;
+  const tau = 1.5 * Math.pow(2, -(midi - 48) / 22);   // low notes ring longer
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(peak, when + .006);
+  g.gain.setTargetAtTime(peak * .35, when + .006, .08);
+  g.gain.setTargetAtTime(0.0001, when + .12, tau);
+  const oscs = PARTIALS.map(([n, a]) => {
+    if (f0 * n > 16000) return null;
+    const o = ctx.createOscillator();
+    const og = ctx.createGain();
+    og.gain.value = a;
+    o.frequency.value = f0 * n * Math.sqrt(1 + 0.0004 * n * n);
+    o.connect(og).connect(g);
+    o.start(when);
+    o.stop(when + 10);
+    return o;
+  }).filter(Boolean);
+  return {
+    release(t) {
+      g.gain.setTargetAtTime(0, t, .07);
+      oscs.forEach(o => { try { o.stop(t + .6); } catch (_) {} });
+    },
+  };
+}
+
+/* ---------- keyboard UI ---------- */
+const LOW = 48, HIGH = 84;   // C3..C6
+const pianoEl = document.getElementById('piano');
+const keyEls = new Map();
+const PC_KEYS = ['a','w','s','e','d','f','t','g','y','h','u','j','k','o','l','p',';',"'"];
+let baseOct = 4;
+function buildPiano() {
+  const whites = [];
+  for (let m = LOW; m <= HIGH; m++) if (![1,3,6,8,10].includes(m % 12)) whites.push(m);
+  pianoEl.style.setProperty('--whites', whites.length);
+  const wWidth = 100 / whites.length;
+  let wi = 0;
+  for (let m = LOW; m <= HIGH; m++) {
+    const black = [1,3,6,8,10].includes(m % 12);
+    const el = document.createElement('div');
+    el.className = 'key ' + (black ? 'black' : 'white');
+    el.dataset.midi = m;
+    if (black) {
+      el.style.left = (wi * wWidth) + '%';
+      el.innerHTML = '<span class="pc"></span>';
+    } else {
+      el.innerHTML = `<span class="solfa">${koName(m)}</span><span class="pc"></span>`;
+      if (m % 12 === 0) { el.classList.add('c-mark'); el.dataset.oct = 'C' + (m / 12 - 1); }
+      wi++;
+    }
+    pianoEl.appendChild(el);
+    keyEls.set(m, { el, count: { melody: 0, accomp: 0, user: 0 } });
+  }
+  labelPcKeys();
+}
+function labelPcKeys() {
+  keyEls.forEach(({ el }) => { el.querySelector('.pc').textContent = ''; });
+  const base = 12 * (baseOct + 1);
+  PC_KEYS.forEach((k, i) => {
+    const ke = keyEls.get(base + i);
+    if (ke) ke.el.querySelector('.pc').textContent = k.toUpperCase();
+  });
+  document.getElementById('octOut').textContent = baseOct;
+}
+function light(midi, kind, on) {
+  const k = keyEls.get(midi);
+  if (!k) return;
+  k.count[kind] = Math.max(0, k.count[kind] + (on ? 1 : -1));
+  k.el.classList.toggle('on-' + kind, k.count[kind] > 0);
+}
+function clearLights(kind) {
+  keyEls.forEach(k => { k.count[kind] = 0; k.el.classList.remove('on-' + kind); });
+}
+
+/* live playing (mouse, touch, computer keys) + recording */
+const held = new Map();      // id -> {midi, v, t}
+let recording = null, lastRecording = null;
+function noteOn(id, midi) {
+  if (midi < 21 || midi > 108 || held.has(id)) return;
+  audio();
+  const v = voice(midi, ctx.currentTime, .95, master);
+  held.set(id, { midi, v, t: ctx.currentTime });
+  if (keyEls.has(midi)) light(midi, 'user', true);
+}
+function noteOff(id) {
+  const h = held.get(id);
+  if (!h) return;
+  held.delete(id);
+  h.v.release(ctx.currentTime);
+  light(h.midi, 'user', false);
+  if (recording) recording.push({ midi: h.midi, start: h.t - recording.t0, dur: Math.max(.08, ctx.currentTime - h.t) });
+}
+
+let pointerDown = new Map();
+pianoEl.addEventListener('pointerdown', (e) => {
+  const key = e.target.closest('.key'); if (!key) return;
+  e.preventDefault();
+  pianoEl.setPointerCapture?.(e.pointerId);
+  const id = 'p' + e.pointerId;
+  pointerDown.set(e.pointerId, +key.dataset.midi);
+  noteOn(id, +key.dataset.midi);
+});
+pianoEl.addEventListener('pointermove', (e) => {
+  if (!pointerDown.has(e.pointerId)) return;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const key = el && el.closest && el.closest('.key');
+  if (!key) return;
+  const m = +key.dataset.midi;
+  if (m !== pointerDown.get(e.pointerId)) {
+    noteOff('p' + e.pointerId);
+    pointerDown.set(e.pointerId, m);
+    noteOn('p' + e.pointerId, m);
+  }
+});
+const endPointer = (e) => { if (pointerDown.has(e.pointerId)) { pointerDown.delete(e.pointerId); noteOff('p' + e.pointerId); } };
+pianoEl.addEventListener('pointerup', endPointer);
+pianoEl.addEventListener('pointercancel', endPointer);
+
+const typing = (e) => /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
+window.addEventListener('keydown', (e) => {
+  if (typing(e) || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z') { baseOct = Math.max(3, baseOct - 1); labelPcKeys(); return; }
+  if (k === 'x') { baseOct = Math.min(5, baseOct + 1); labelPcKeys(); return; }
+  const i = PC_KEYS.indexOf(k);
+  if (i >= 0) { e.preventDefault(); noteOn('k' + e.code, 12 * (baseOct + 1) + i); }
+});
+window.addEventListener('keyup', (e) => noteOff('k' + e.code));
+window.addEventListener('blur', () => [...held.keys()].forEach(noteOff));
+
+/* ---------- song playback (look-ahead scheduler) ---------- */
+let current = null;   // the loaded song
+let pb = null;        // active playback
+const $ = (id) => document.getElementById(id);
+const tempo = () => +$('tempo').value / 100;
+function volume() { return (+$('vol').value / 100) * .9; }
+
+function loadSong(song) {
+  stop();
+  const parsed = song.parsed || parseNotes(song.notes);
+  current = { ...song, parsed };
+  $('nowTitle').textContent = song.title;
+  const beats = song.beats === 3 ? '3/4' : '4/4';
+  $('nowMeta').textContent = song.recorded
+    ? `녹음 · ${parsed.events.length}음 · ${parsed.total.toFixed(1)}초`
+    : `${beats} · ♩=${song.bpm} · ${parsed.events.filter(e => e.midi != null).length}음`;
+  $('playBtn').disabled = false;
+  renderStrip(parsed);
+  document.querySelectorAll('#songChips .chip').forEach(c => c.classList.toggle('playing', c.dataset.id === song.id));
+}
+
+function renderStrip(parsed) {
+  const inner = $('stripInner');
+  inner.innerHTML = '';
+  parsed.events.forEach((n, i) => {
+    const s = document.createElement('span');
+    s.className = 'n' + (parsed.barStarts.has(i) && i > 0 ? ' bar' : '');
+    s.textContent = n.midi == null ? '쉼' : koName(n.midi);
+    inner.appendChild(s);
+  });
+  $('strip').scrollLeft = 0;
+  $('bar').style.width = '0%';
+}
+
+function play() {
+  if (!current) return;
+  stop();
+  audio();
+  const song = current;
+  const spb = song.recorded ? 1 / tempo() : 60 / (song.bpm * tempo());
+  const melody = song.parsed.events;
+  const useAccomp = $('accomp').checked && !song.recorded;
+  const acc = useAccomp ? buildAccomp(song, melody, song.parsed.total) : [];
+  const bus = ctx.createGain();
+  bus.connect(master);
+  const events = [
+    ...melody.map((n, i) => ({ ...n, kind: 'melody', idx: i, vel: .95 })),
+    ...acc.map(n => ({ ...n, kind: 'accomp', vel: .5 })),
+  ].filter(n => n.midi != null).sort((a, b) => a.start - b.start);
+  pb = { bus, events, next: 0, t0: ctx.currentTime + .15, spb, total: song.parsed.total, lit: [], timer: 0, raf: 0, stripIdx: -1 };
+  $('stopBtn').disabled = false;
+  $('playBtn').textContent = '↺ 처음부터';
+  schedule();
+  pb.timer = setInterval(schedule, 40);
+  pb.raf = requestAnimationFrame(tick);
+}
+
+function schedule() {
+  if (!pb) return;
+  const horizon = ctx.currentTime + .25;
+  while (pb.next < pb.events.length) {
+    const n = pb.events[pb.next];
+    const at = pb.t0 + n.start * pb.spb;
+    if (at > horizon) break;
+    const len = n.dur * pb.spb;
+    const v = voice(n.midi, at, n.vel, pb.bus);
+    v.release(at + Math.max(.06, len * (n.kind === 'melody' ? .92 : .98)));
+    pb.lit.push({ midi: n.midi, kind: n.kind, on: at, off: at + len * .92, state: 0 });
+    pb.next++;
+  }
+}
+
+function tick() {
+  if (!pb) return;
+  const now = ctx.currentTime;
+  for (const l of pb.lit) {
+    if (l.state === 0 && now >= l.on) { light(l.midi, l.kind, true); l.state = 1; }
+    if (l.state === 1 && now >= l.off) { light(l.midi, l.kind, false); l.state = 2; }
+  }
+  pb.lit = pb.lit.filter(l => l.state !== 2);
+  const beat = (now - pb.t0) / pb.spb;
+  $('bar').style.width = Math.min(100, Math.max(0, beat / pb.total * 100)) + '%';
+  // highlight the note in the strip
+  const ev = current.parsed.events;
+  let idx = -1;
+  for (let i = 0; i < ev.length; i++) { if (ev[i].start <= beat + 1e-6) idx = i; else break; }
+  if (idx !== pb.stripIdx) {
+    const chips = $('stripInner').children;
+    for (let i = 0; i < chips.length; i++) {
+      chips[i].classList.toggle('cur', i === idx);
+      chips[i].classList.toggle('done', i < idx);
+    }
+    pb.stripIdx = idx;
+    const c = chips[idx];
+    if (c) {
+      const strip = $('strip');
+      const target = c.offsetLeft - strip.clientWidth / 2 + c.offsetWidth / 2;
+      strip.scrollLeft = Math.max(0, target);
+    }
+  }
+  if (beat > pb.total + .6) { finish(); return; }
+  pb.raf = requestAnimationFrame(tick);
+}
+
+function finish() {
+  stop();
+  $('bar').style.width = '100%';
+}
+function stop() {
+  if (!pb) return;
+  clearInterval(pb.timer);
+  cancelAnimationFrame(pb.raf);
+  const bus = pb.bus, t = ctx.currentTime;
+  bus.gain.setTargetAtTime(0, t, .03);
+  setTimeout(() => bus.disconnect(), 400);
+  pb = null;
+  clearLights('melody'); clearLights('accomp');
+  $('stopBtn').disabled = true;
+  $('playBtn').textContent = '▶ 재생';
+  [...$('stripInner').children].forEach(c => c.classList.remove('cur'));
+}
+
+/* ---------- search ---------- */
+const norm = (s) => s.toLowerCase().replace(/[\s.,!?'’\-_~]/g, '');
+function findSongs(q) {
+  const n = norm(q);
+  if (!n) return [];
+  const all = [...SONGS, ...mySongs()];
+  const scored = [];
+  for (const s of all) {
+    const names = [s.title, ...(s.alias || [])].map(norm);
+    let sc = 0;
+    for (const nm of names) {
+      if (nm === n) sc = Math.max(sc, 3);
+      else if (nm.startsWith(n) || n.startsWith(nm)) sc = Math.max(sc, 2);
+      else if (nm.includes(n) || n.includes(nm)) sc = Math.max(sc, 1);
+    }
+    if (sc) scored.push([sc, s]);
+  }
+  return scored.sort((a, b) => b[0] - a[0]).map(x => x[1]);
+}
+function renderChips() {
+  const box = $('songChips');
+  box.innerHTML = '';
+  SONGS.forEach(s => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.dataset.id = s.id;
+    b.textContent = s.title;
+    b.addEventListener('click', () => { loadSong(s); play(); setMsg(''); });
+    box.appendChild(b);
+  });
+}
+function setMsg(t, warn) { const m = $('msg'); m.textContent = t; m.classList.toggle('warn', !!warn); }
+
+$('searchForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const q = $('q').value.trim();
+  if (!q) { setMsg('노래 제목을 먼저 입력해 주세요.', true); return; }
+  // let people paste solfège straight into the search box too
+  const hits = findSongs(q);
+  if (hits.length) {
+    loadSong(hits[0]); play();
+    setMsg(hits.length > 1 ? `"${hits[0].title}"을(를) 연주해요. 비슷한 노래: ${hits.slice(1, 4).map(s => s.title).join(', ')}` : `"${hits[0].title}"을(를) 연주해요.`);
+    return;
+  }
+  const custom = /^[\s도레미파솔라시#b'’,.\d\-|쉼높낮은]+$/.test(q) ? parseCustom(q, '검색창에 넣은 계이름') : null;
+  if (custom) { loadSong(custom); play(); setMsg('계이름으로 알아듣고 연주해요.'); return; }
+  setMsg(`"${q}"은(는) 아직 목록에 없어요. 아래 "원하는 노래 직접 넣기"에 계이름을 적으면 그대로 연주해 드려요.`, true);
+});
+
+/* ---------- custom songs & recordings (saved in this browser) ---------- */
+const STORE = 'singing-piano-v1';
+function mySongs() {
+  try { return JSON.parse(localStorage.getItem(STORE) || '[]'); } catch (_) { return []; }
+}
+function saveMySongs(list) {
+  try { localStorage.setItem(STORE, JSON.stringify(list)); return true; } catch (_) { return false; }
+}
+function hydrate(s) {
+  if (s.recorded) return { ...s, parsed: { events: s.events, total: s.total, barStarts: new Set() } };
+  return parseCustom(s.text, s.title) && { ...parseCustom(s.text, s.title), id: s.id, alias: [] };
+}
+function renderMine() {
+  const box = $('mine');
+  box.innerHTML = '';
+  const list = mySongs();
+  if (!list.length) {
+    const p = document.createElement('p'); p.className = 'help';
+    p.textContent = '아직 저장한 노래가 없어요. 왼쪽에서 계이름을 적고 저장해 보세요.';
+    box.appendChild(p); return;
+  }
+  list.forEach((s, i) => {
+    const wrap = document.createElement('span'); wrap.className = 'chip';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'x';
+    b.style.color = 'inherit'; b.style.fontWeight = '500';
+    b.textContent = (s.recorded ? '● ' : '♪ ') + s.title;
+    b.addEventListener('click', () => { const h = hydrate(s); if (h) { loadSong(h); play(); } });
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'x';
+    del.setAttribute('aria-label', s.title + ' 지우기'); del.textContent = '×';
+    del.addEventListener('click', () => { const l = mySongs(); l.splice(i, 1); saveMySongs(l); renderMine(); });
+    wrap.append(b, del); box.appendChild(wrap);
+  });
+}
+$('customPlay').addEventListener('click', () => {
+  const s = parseCustom($('custom').value, $('customTitle').value.trim());
+  if (!s) { $('customMsg').textContent = '알아볼 수 있는 음이 없어요. 예: 도레미 레도'; return; }
+  $('customMsg').textContent = `${s.parsed.events.length}개 음을 연주해요.`;
+  loadSong(s); play();
+});
+$('customSave').addEventListener('click', () => {
+  const text = $('custom').value;
+  if (!parseCustom(text)) { $('customMsg').textContent = '저장할 음이 없어요.'; return; }
+  const title = $('customTitle').value.trim() || '내 노래 ' + (mySongs().length + 1);
+  const list = mySongs(); list.push({ id: 'my-' + Date.now(), title, text });
+  $('customMsg').textContent = saveMySongs(list) ? `"${title}"을(를) 저장했어요. 검색창에서도 찾을 수 있어요.` : '이 브라우저에서는 저장할 수 없어요.';
+  renderMine();
+});
+
+$('recBtn').addEventListener('click', () => {
+  audio();
+  if (!recording) {
+    stop();
+    recording = [];
+    recording.t0 = ctx.currentTime;
+    $('recBtn').classList.add('on'); $('recBtn').textContent = '■ 녹음 끝';
+    setMsg('녹음 중이에요. 건반을 쳐 보세요.');
+    return;
+  }
+  [...held.keys()].forEach(noteOff);
+  const notes = recording.slice().sort((a, b) => a.start - b.start);
+  recording = null;
+  $('recBtn').classList.remove('on'); $('recBtn').textContent = '● 녹음';
+  if (!notes.length) { setMsg('녹음된 음이 없어요.'); return; }
+  const off = notes[0].start;
+  notes.forEach(n => { n.start = +(n.start - off).toFixed(3); n.dur = +n.dur.toFixed(3); });
+  const total = Math.max(...notes.map(n => n.start + n.dur));
+  lastRecording = { id: 'rec-' + Date.now(), title: '내 녹음 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }), recorded: true, beats: 4, bpm: 60, events: notes, total };
+  const list = mySongs(); list.push(lastRecording); saveMySongs(list); renderMine();
+  $('replayBtn').disabled = false;
+  setMsg(`${notes.length}개 음을 녹음했어요. 피아노가 다시 들려줘요.`);
+  loadSong(hydrate(lastRecording)); play();
+});
+$('replayBtn').addEventListener('click', () => { if (lastRecording) { loadSong(hydrate(lastRecording)); play(); } });
+
+/* ---------- controls ---------- */
+$('playBtn').addEventListener('click', play);
+$('stopBtn').addEventListener('click', stop);
+$('tempo').addEventListener('input', () => { $('tempoOut').textContent = $('tempo').value + '%'; });
+$('vol').addEventListener('input', () => { $('volOut').textContent = $('vol').value; if (master) master.gain.setTargetAtTime(volume(), ctx.currentTime, .02); });
+
+buildPiano();
+renderChips();
+renderMine();
+loadSong(SONGS[0]);
+// start the keyboard view around middle C on narrow screens
+const sc = $('pianoScroll');
+sc.scrollLeft = (sc.scrollWidth - sc.clientWidth) / 2;
+
+// hooks for automated checks
+window.__piano = { SONGS, parseNotes, parseCustom, buildAccomp, findSongs };
+})();
+</script>
+</body>
+</html>
