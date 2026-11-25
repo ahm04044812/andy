@@ -107,6 +107,7 @@ button:disabled { opacity: .45; cursor: default; }
 .settings { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; }
 .settings label { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
 .settings input[type=range] { width: 140px; accent-color: var(--accent); }
+.settings select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
 .settings input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 output { font-family: var(--font-mono); color: var(--ink); font-variant-numeric: tabular-nums; min-width: 3.5em; }
 .legend { display: inline-flex; gap: 14px; font-size: 13px; color: var(--muted); margin-left: auto; }
@@ -115,13 +116,12 @@ output { font-family: var(--font-mono); color: var(--ink); font-variant-numeric:
 /* piano */
 .piano-case { background: var(--case); border-radius: 16px; padding: 14px 14px 18px; box-shadow: 0 18px 40px -24px rgba(0,0,0,.6); }
 .piano-scroll { overflow-x: auto; scrollbar-width: thin; }
-.piano { position: relative; height: 210px; display: flex; min-width: 760px; user-select: none; -webkit-user-select: none; touch-action: none; }
+.piano { position: relative; height: 210px; display: flex; min-width: 980px; user-select: none; -webkit-user-select: none; touch-action: none; }
 .key { position: relative; cursor: pointer; }
 .white {
   flex: 1; background: var(--ivory); border: 1px solid var(--ivory-edge); border-top: none;
   border-radius: 0 0 7px 7px; margin: 0 1px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
   padding-bottom: 10px; gap: 2px; color: #6a6e77; font-size: 12px;
-  transition: background .06s;
 }
 .white .solfa { font-weight: 600; color: #3d4049; font-size: 13px; }
 .white .pc { font-family: var(--font-mono); font-size: 11px; color: #9a9ea6; }
@@ -194,8 +194,13 @@ textarea {
     <div class="settings">
       <label for="tempo">빠르기 <input id="tempo" type="range" min="50" max="160" step="5" value="100"> <output id="tempoOut">100%</output></label>
       <label for="vol">음량 <input id="vol" type="range" min="0" max="100" value="75"> <output id="volOut">75</output></label>
-      <label for="accomp"><input id="accomp" type="checkbox" checked> 자동 반주</label>
-      <div class="legend"><span style="--c: var(--accent)">멜로디</span><span style="--c: var(--accomp)">반주</span><span style="--c: var(--user)">내 연주</span></div>
+      <label for="style">연주 방식
+        <select id="style">
+          <option value="full" selected>양손 화음 (실제 피아노처럼)</option>
+          <option value="simple">멜로디 + 간단 반주</option>
+          <option value="none">멜로디만</option>
+        </select></label>
+      <div class="legend"><span style="--c: var(--accent)">오른손</span><span style="--c: var(--accomp)">왼손</span><span style="--c: var(--user)">내 연주</span></div>
     </div>
   </section>
 
@@ -270,7 +275,7 @@ const SONGS = [
   { id:'clair', title:'달빛 (드뷔시)', alias:['달빛','드뷔시','clair de lune','debussy','클레르 드 륀'], bpm:100, beats:9, meter:'9/8', key:1,
     chords:['Db','Db','Ab','Gb','Db','Ebm','Db','Ab','Db'],
     notes:'R:2 Ab5+F5:7 | F5+Db5:9 | R:1 Eb5+C5:2 F5+Db5:3 Eb5+C5:3 | R:1 Db5+Bb4:2 Eb5+C5:3 Db5+Bb4:3 | R:1 C5+Ab4:2 Db5+Bb4:3 C5+Ab4:3 | R:1 Bb4+Gb4:2 C5+Ab4:3 Bb4+Gb4:3 | R:1 Ab4+F4:2 Bb4+Gb4:3 Ab4+F4:3 | R:1 Gb4+Eb4:3 Ab4+F4:2 Gb4+Eb4:3 | F4+Db4:9' },
-  { id:'elise', title:'엘리제를 위하여', alias:['엘리제','fur elise','für elise','베토벤 엘리제'], bpm:150, beats:3, pickup:1, key:9, minor:true,
+  { id:'elise', style:'arp', title:'엘리제를 위하여', alias:['엘리제','fur elise','für elise','베토벤 엘리제'], bpm:150, beats:3, pickup:1, key:9, minor:true,
     chords:[null,'Am','E','Am',null,'Am','E','Am'],
     notes:'E5:.5 D#5:.5 | E5:.5 D#5:.5 E5:.5 B4:.5 D5:.5 C5:.5 | A4:1 R:.5 C4:.5 E4:.5 A4:.5 | B4:1 R:.5 E4:.5 G#4:.5 B4:.5 | C5:1 R:.5 E4:.5 E5:.5 D#5:.5 | E5:.5 D#5:.5 E5:.5 B4:.5 D5:.5 C5:.5 | A4:1 R:.5 C4:.5 E4:.5 A4:.5 | B4:1 R:.5 E4:.5 C5:.5 B4:.5 | A4:3' },
 ];
@@ -330,9 +335,71 @@ function pickChords(song, melody, total) {
   return out;
 }
 
+const chordsFor = (song, melody, total) =>
+  song.chords ? song.chords.map(c => c ? parseChord(c) : null) : pickChords(song, melody, total);
+
+/* Two-handed piano arrangement: several keys sound at once, like a real score.
+   Right hand: melody on top + chord tones under it on the strong beats.
+   Left hand: bass note with block chords (4/4 "bass-chord-fifth-chord", 3/4 waltz, 9/8 held chords). */
+function buildArrangement(song, melody, total) {
+  const B = song.beats, pickup = song.pickup || 0;
+  if (song.style === 'arp') return { rh: [], lh: buildAccomp(song, melody, total) };
+  const chords = chordsFor(song, melody, total);
+  const rh = [], lh = [];
+  const chordAt = (t) => {
+    if (t < pickup - 1e-6) return null;
+    return chords[Math.floor((t - pickup) / B + 1e-6)] || null;
+  };
+  // right hand: add chord tones below the melody note
+  const hasOwnHarmony = melody.some(n => n.extra && n.extra.length);
+  if (!hasOwnHarmony) {
+    for (const n of melody) {
+      if (n.midi == null) continue;
+      const ch = chordAt(n.start);
+      if (!ch) continue;
+      const tones = triad(ch.root, ch.minor);
+      if (!tones.includes(n.midi % 12)) continue;               // passing note: leave it alone
+      const pos = n.start - pickup;
+      const onBeat = Math.abs(pos - Math.round(pos)) < 1e-6;
+      const downbeat = Math.abs(pos / B - Math.round(pos / B)) < 1e-6;
+      if (!(downbeat || (onBeat && n.dur >= 1))) continue;
+      const want = downbeat && n.dur >= 1 ? 2 : 1;               // 3 keys on strong notes, 2 elsewhere
+      let m = n.midi - 3, added = 0;
+      while (added < want && m >= 57) {
+        if (tones.includes(((m % 12) + 12) % 12)) { rh.push({ midi: m, start: n.start, dur: n.dur }); added++; m -= 3; }
+        else m--;
+      }
+    }
+  }
+  // left hand
+  chords.forEach((ch, b) => {
+    if (!ch) return;
+    const s = pickup + b * B;
+    if (s >= total) return;
+    const bass = 40 + ((ch.root - 4 + 12) % 12);                  // E2..D#3
+    const fifthBass = bass + 7 > 52 ? bass - 5 : bass + 7;
+    const block = [];                                            // closed triad between C3 and B3
+    for (let m = 48; m < 60; m++) if (triad(ch.root, ch.minor).includes(m % 12)) block.push(m);
+    const add = (midis, t, d, vel) => midis.forEach(m => { if (t < total) lh.push({ midi: m, start: t, dur: d, vel }); });
+    const last = b === chords.length - 1 || s + B >= total - 1e-6;
+    if (last) { add([bass - 12 >= 28 ? bass - 12 : bass, bass, ...block], s, Math.max(1, total - s), .55); return; }
+    if (B === 4) {
+      add([bass], s, 1, .6); add(block, s + 1, 1, .4);
+      add([fifthBass], s + 2, 1, .55); add(block, s + 3, 1, .4);
+    } else if (B === 3) {
+      add([bass], s, 1, .6); add(block, s + 1, 1, .4); add(block, s + 2, 1, .4);
+    } else if (B === 9) {
+      add([bass, bass + 7], s, 9, .5); add(block, s + 3, 6, .3);
+    } else {
+      add([bass], s, B / 2, .6); add(block, s + B / 2, B / 2, .4);
+    }
+  });
+  return { rh, lh };
+}
+
 function buildAccomp(song, melody, total) {
   const B = song.beats, pickup = song.pickup || 0;
-  const chords = song.chords ? song.chords.map(c => c ? parseChord(c) : null) : pickChords(song, melody, total);
+  const chords = chordsFor(song, melody, total);
   const ev = [];
   chords.forEach((ch, b) => {
     if (!ch) return;
@@ -450,7 +517,7 @@ function voice(midi, when, vel, dest) {
 }
 
 /* ---------- keyboard UI ---------- */
-const LOW = 48, HIGH = 84;   // C3..C6
+const LOW = 36, HIGH = 84;   // C2..C6
 const pianoEl = document.getElementById('piano');
 const keyEls = new Map();
 const PC_KEYS = ['a','w','s','e','d','f','t','g','y','h','u','j','k','o','l','p',';',"'"];
@@ -595,14 +662,17 @@ function play() {
   const song = current;
   const spb = song.recorded ? 1 / tempo() : 60 / (song.bpm * tempo());
   const melody = song.parsed.events;
-  const useAccomp = $('accomp').checked && !song.recorded;
-  const acc = useAccomp ? buildAccomp(song, melody, song.parsed.total) : [];
+  const mode = song.recorded ? 'none' : $('style').value;
+  let rh = [], lh = [];
+  if (mode === 'full') ({ rh, lh } = buildArrangement(song, melody, song.parsed.total));
+  else if (mode === 'simple') lh = buildAccomp(song, melody, song.parsed.total);
   const bus = ctx.createGain();
   bus.connect(master);
   const events = [
     ...melody.map((n, i) => ({ ...n, kind: 'melody', idx: i, vel: .95 })),
     ...melody.flatMap(n => (n.extra || []).map(m => ({ ...n, midi: m, kind: 'melody', vel: .6 }))),
-    ...acc.map(n => ({ ...n, kind: 'accomp', vel: .5 })),
+    ...rh.map(n => ({ ...n, kind: 'melody', vel: .55 })),
+    ...lh.map(n => ({ ...n, kind: 'accomp', vel: n.vel || .5 })),
   ].filter(n => n.midi != null).sort((a, b) => a.start - b.start);
   pb = { bus, events, next: 0, t0: ctx.currentTime + .15, spb, total: song.parsed.total, lit: [], timer: 0, raf: 0, stripIdx: -1 };
   $('stopBtn').disabled = false;
@@ -814,7 +884,7 @@ const sc = $('pianoScroll');
 sc.scrollLeft = (sc.scrollWidth - sc.clientWidth) / 2;
 
 // hooks for automated checks
-window.__piano = { SONGS, parseNotes, parseCustom, buildAccomp, findSongs };
+window.__piano = { SONGS, parseNotes, parseCustom, buildAccomp, buildArrangement, findSongs };
 })();
 </script>
 </body>
