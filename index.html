@@ -267,6 +267,9 @@ const SONGS = [
     notes:'G4:1.5 A4:.5 G4 F4 | E4 F4 G4:2 | D4 E4 F4:2 | E4 F4 G4:2 | G4:1.5 A4:.5 G4 F4 | E4 F4 G4:2 | D4:2 G4:2 | E4 C4:3' },
   { id:'amazing', title:'어메이징 그레이스', alias:['amazing grace','나 같은 죄인','찬송가','그레이스'], bpm:84, beats:3, pickup:1, key:0,
     notes:'G3 | C4:2 E4:.5 C4:.5 | E4:2 D4 | C4:2 A3 | G3:2 G3 | C4:2 E4:.5 C4:.5 | E4:2 D4 | G4:3 | G4:2 E4 | G4:2 E4:.5 C4:.5 | E4:2 D4 | C4:2 A3 | G3:2 G3 | C4:2 E4:.5 C4:.5 | E4:2 D4 | C4:3' },
+  { id:'clair', title:'달빛 (드뷔시)', alias:['달빛','드뷔시','clair de lune','debussy','클레르 드 륀'], bpm:100, beats:9, meter:'9/8', key:1,
+    chords:['Db','Db','Ab','Gb','Db','Ebm','Db','Ab','Db'],
+    notes:'R:2 Ab5+F5:7 | F5+Db5:9 | R:1 Eb5+C5:2 F5+Db5:3 Eb5+C5:3 | R:1 Db5+Bb4:2 Eb5+C5:3 Db5+Bb4:3 | R:1 C5+Ab4:2 Db5+Bb4:3 C5+Ab4:3 | R:1 Bb4+Gb4:2 C5+Ab4:3 Bb4+Gb4:3 | R:1 Ab4+F4:2 Bb4+Gb4:3 Ab4+F4:3 | R:1 Gb4+Eb4:3 Ab4+F4:2 Gb4+Eb4:3 | F4+Db4:9' },
   { id:'elise', title:'엘리제를 위하여', alias:['엘리제','fur elise','für elise','베토벤 엘리제'], bpm:150, beats:3, pickup:1, key:9, minor:true,
     chords:[null,'Am','E','Am',null,'Am','E','Am'],
     notes:'E5:.5 D#5:.5 | E5:.5 D#5:.5 E5:.5 B4:.5 D5:.5 C5:.5 | A4:1 R:.5 C4:.5 E4:.5 A4:.5 | B4:1 R:.5 E4:.5 G#4:.5 B4:.5 | C5:1 R:.5 E4:.5 E5:.5 D#5:.5 | E5:.5 D#5:.5 E5:.5 B4:.5 D5:.5 C5:.5 | A4:1 R:.5 C4:.5 E4:.5 A4:.5 | B4:1 R:.5 E4:.5 C5:.5 B4:.5 | A4:3' },
@@ -278,7 +281,8 @@ function parseNotes(str) {
     if (tok === '|') { bars.push(ev.length); continue; }
     const [n, d] = tok.split(':');
     const dur = d ? parseFloat(d) : 1;
-    ev.push({ midi: n === 'R' ? null : nameToMidi(n), start: t, dur });
+    const [top, ...rest] = n.split('+');   // "Ab5+F5" = two notes together, first one is the melody
+    ev.push({ midi: top === 'R' ? null : nameToMidi(top), extra: rest.map(nameToMidi), start: t, dur });
     t += dur;
   }
   return { events: ev, total: t, barStarts: new Set(bars) };
@@ -341,7 +345,8 @@ function buildAccomp(song, melody, total) {
       [root, fifth, third].forEach((m, i) => ev.push({ midi: m, start: s + i * 0.08, dur: Math.max(1, total - s) }));
       return;
     }
-    const pattern = B === 3 ? [root, fifth, oct] : B === 2 ? [root, fifth] : [root, fifth, third, fifth];
+    const pattern = B === 9 ? [root, fifth, oct, third, oct, fifth, oct, third, oct]
+      : B === 3 ? [root, fifth, oct] : B === 2 ? [root, fifth] : [root, fifth, third, fifth];
     const steps = Math.max(1, Math.round(B));
     for (let i = 0; i < steps; i++) {
       const st = s + i * (B / steps);
@@ -561,10 +566,10 @@ function loadSong(song) {
   const parsed = song.parsed || parseNotes(song.notes);
   current = { ...song, parsed };
   $('nowTitle').textContent = song.title;
-  const beats = song.beats === 3 ? '3/4' : '4/4';
+  const beats = song.meter || (song.beats === 3 ? '3/4' : '4/4');
   $('nowMeta').textContent = song.recorded
     ? `녹음 · ${parsed.events.length}음 · ${parsed.total.toFixed(1)}초`
-    : `${beats} · ♩=${song.bpm} · ${parsed.events.filter(e => e.midi != null).length}음`;
+    : `${beats} · ${song.meter === "9/8" ? "♪" : "♩"}=${song.bpm} · ${parsed.events.filter(e => e.midi != null).length}음`;
   $('playBtn').disabled = false;
   renderStrip(parsed);
   document.querySelectorAll('#songChips .chip').forEach(c => c.classList.toggle('playing', c.dataset.id === song.id));
@@ -596,6 +601,7 @@ function play() {
   bus.connect(master);
   const events = [
     ...melody.map((n, i) => ({ ...n, kind: 'melody', idx: i, vel: .95 })),
+    ...melody.flatMap(n => (n.extra || []).map(m => ({ ...n, midi: m, kind: 'melody', vel: .6 }))),
     ...acc.map(n => ({ ...n, kind: 'accomp', vel: .5 })),
   ].filter(n => n.midi != null).sort((a, b) => a.start - b.start);
   pb = { bus, events, next: 0, t0: ctx.currentTime + .15, spb, total: song.parsed.total, lit: [], timer: 0, raf: 0, stripIdx: -1 };
